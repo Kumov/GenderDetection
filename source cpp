@@ -1,0 +1,112 @@
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include "opencv2/imgcodecs.hpp"
+#include <opencv2/highgui.hpp>
+#include <opencv2/ml.hpp>
+
+using namespace std;
+using namespace cv;
+using namespace cv::ml;
+
+int main(int, char**)
+{
+   cout<< "start processing"<<endl;
+   
+//defining image path and number of train image
+   
+   char male_image[100]="/Users/HubinoMac2/Documents/NetBeansProjects/sssvmtry/male";
+   char female_image[100]="/Users/HubinoMac2/Documents/NetBeansProjects/sssvmtry/female";
+   int nummales=10;
+   int numfemales=10;
+ 
+//declaration of matrix
+   
+   Mat classes;
+   Mat trainingData;
+   Mat trainingImages;
+   vector<int> trainingLabels;
+   Mat img;
+   
+//assigning label to the male images 
+  
+   for(int i=1; i<= nummales; i++)
+    {
+
+        stringstream ss(stringstream::in | stringstream::out);
+        ss << male_image << i << ".jpg";
+        img=imread(ss.str(), 0);  //loading images
+        resize(img,img,Size(200,200));//resizing all the images into same size
+        img= img.reshape(1, 1);
+        trainingImages.push_back(img);
+        trainingLabels.push_back(1);
+    }
+   
+   cout<<"male images trained"<<endl;
+    
+//assigning label to the female images
+   
+   for(int i=1; i<= numfemales; i++)
+    {
+        stringstream ss(stringstream::in | stringstream::out);
+        ss << female_image << i << ".jpg";
+        img=imread(ss.str(), 0); //loading images
+        resize(img,img,Size(200,200));//resizing all the images into same size
+        img= img.reshape(1, 1);
+        trainingImages.push_back(img);
+        trainingLabels.push_back(0);
+
+    }
+   
+   cout<<"female images trained"<<endl;
+   
+//converting image values into float value
+   
+   Mat tra_set(20,40000,CV_32FC1);
+   Mat(trainingImages).copyTo(trainingData);
+   trainingData = trainingData.reshape(1,20);
+   trainingData.convertTo(tra_set, CV_32FC1,1.0/255.0);
+   Mat(trainingLabels).copyTo(classes);
+   
+//creating XML value
+   
+    FileStorage fs("sharma.xml", FileStorage::WRITE);
+    fs << "TrainingData" << tra_set;
+    fs << "classes" << classes;
+    fs.release();
+    cout<<"training done"<<endl;
+            
+// Training the SVM
+    
+    Ptr<SVM> svm = SVM::create();
+    svm->setType(SVM::C_SVC);
+    svm->setKernel(SVM::LINEAR);
+    svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 100, 1e-6));
+    svm->train(tra_set, ROW_SAMPLE, classes);
+    svm->save("gender.xml");
+    Ptr<SVM> svm1 = StatModel::load<SVM>("gender.xml");
+    
+// recognizing 
+    
+    cout<<"recognising...."<<endl;
+    
+//loading test image
+
+    Mat testimage=imread("female35.jpg",0);   
+    resize(testimage,testimage,Size(200,200));// resizing into the size of training set
+    testimage = testimage.reshape(1,1);
+    
+//reshaping and converting into float
+    
+    Mat test=Mat(testimage.size(),CV_32FC1);
+    testimage.convertTo(test, CV_32FC1,1.0/255.0);
+    
+//predicting SVM
+    
+    float res= svm->predict(test);
+    
+//assigning response
+    
+    cout<<endl;
+    res==0? cout<<"female":cout<<"male";
+    
+}
